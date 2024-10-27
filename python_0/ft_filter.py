@@ -4,7 +4,7 @@ def ft_filter(func, iterable):
     """
     Returns a sequence from those elements of iterable for which function returns True
     """
-    new_list = [x for x in iterable if func]
+    new_list = [x for x in iterable if func(x)]
     return new_list
 
 def main():
