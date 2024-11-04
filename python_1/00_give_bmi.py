@@ -1,6 +1,5 @@
 # Allowed functions : numpy or any lib of table manipulation
 
-import numpy as np
 # print(dir(np.array))
 # help(np)
 # help(list)
