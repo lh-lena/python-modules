@@ -1,85 +1,91 @@
 import os
 import urllib.request as URLR
 from bs4 import BeautifulSoup as BS
-import shutil
 # from PIL import Image
 
-class Spider:
-    def __init__(self, args: list):
-        # set default value
-        self.recursive = False
-        self.depth = 5
-        self.path = "./data/"
-        self.url = None
-
-        # parse options
-        self.parseOptions(args)
-        self.validateOptions()
-        self.downloadImages(self.url, self.path)
-
-    def __repr__(self):
-        return (f"Spider(recursive={self.recursive}, depth={self.depth}, "
-                f"path='{self.path}', url='{self.url}')")
-
-def parseOptions(self, args: list):
-    i = 0;
-    size = len(args);
+def parseOptions(args: list) -> dict:
+    data = {
+        "recursive": False,
+        "depth": 5,
+        "path": "./data/",
+        "url": None
+    }
+    i = 0
+    size = len(args)
     while (i < size):
         if args[i] == "-r":
-            self.recursive = True
+            data["recursive"] = True
         elif args[i] == "-l":
             if i + 1 < size and args[i + 1].isdigit():
-                self.depth = int(args[i + 1])
+                data["depth"] = int(args[i + 1])
                 i += 1
             else:
                 raise AssertionError("Option -l requires a numeric depth level")
         elif args[i] == "-p":
             assert i + 1 < size, "Option -p requires a path"
-            self.path = args[i + 1]
+            data["path"] = args[i + 1]
             i += 1
-        elif args[i].startswith("https://") or args[i].startswith("http://"): #ftp??
-            self.url = args[i]
+        elif args[i].startswith("https://") or args[i].startswith("http://"):
+            data["url"] = args[i]
         else:
             raise AssertionError("Invalid option")
         i += 1
-        
-def validateOptions(self):
-    curPath = os.getcwd()
-    # p = self.path
-    if None == self.url:
+    if None == data["url"]:
         raise AssertionError("URL must be provided")
-    # if p.startswith("./"):
-    self.path = curPath + "/data"
+    return data
+
+def downloadImage(pageUrl: str, imageUrl: str, pathDir: str):
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+    }
+    if not imageUrl.startswith('http'):
+        imageUrl = pageUrl + "/" + imageUrl
+    req = URLR.Request(imageUrl, headers=HEADERS)
+    response = URLR.urlopen(req)
+    if not os.path.exists(pathDir):
+        os.makedirs(pathDir, exist_ok=True)
+    absp = os.path.abspath(pathDir)
+    filePath = absp + "/" + os.path.basename(imageUrl)
+    file = open(filePath, "wb")
+    file.write(response.read())
+    file.close()
+
+    print(f"Image {imageUrl} downloaded and saved at {absp}")
+
+def isExtention(src: str, extention: list)-> bool:
+    """Check if the URL ends with one of the specified extensions"""
+    for ext in extention:
+        if src.lower().endswith(ext):
+            return True
+    return False
+
+def parse_urls(soup, tag: str, source: str) -> list:
+    res = []
+    for i in soup.find_all(f"{tag}", {f"{source}":True}):
+        res.append(i[source])
+    return res
+
+def scrapePage(url: str, pathDir: str, depth: int, maxDepth: int, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]):
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+    }
     
-def spider(self, url: str):
-    if not url:
-        raise AssertionError("URL must be provided")
+    req = URLR.Request(url, headers=HEADERS)
+    response = URLR.urlopen(req).read()
+    soup = BS(response, 'html.parser')
+    imgUrls = parse_urls(soup, "img", "src")
+    # imgUrls = soup.find_all("img", {"src":True})
+    # for tag in imgUrls:
+    #     if tag['src'] and isExtention(tag['src'], extension):
+    #         downloadImage(url, tag['src'], pathDir)
+
+    for tag in imgUrls:
+        if isExtention(tag, extension):
+            downloadImage(url, tag, pathDir)
+
+    if depth == maxDepth:
+        return
+
+    pageUrls = parse_urls(soup, "a", "href")
+    # print(pageUrls)
     
-
-
-
-def downloadImage(imageUrl, dir):
-    directory = os.path.dirname(dir)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
-    filename = os.path.basename(imageUrl)
-    URLR.urlretrieve(imageUrl, filename)
-
-    print(f"Image downloaded and saved at {dir}")
-
-def downloadImages(url, dir, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]):
-    req = URLR.Request(url)
-    with URLR.urlopen(req) as response:
-        page = response.read()
-    # print(page)
-    # Parse the HTML content
-    soup = BS(page, 'html.parser')
-    print(soup.title.string)
-    # imageUrl = "https://images.unsplash.com/photo-1561037404-61cd46aa615b?h=500"
-    # downloadImage(imageUrl, dir)
-
-
-Spider.parseOptions = parseOptions
-Spider.validateOptions = validateOptions
-Spider.downloadImages = downloadImages
