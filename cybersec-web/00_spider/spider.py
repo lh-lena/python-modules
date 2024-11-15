@@ -1,5 +1,6 @@
 import os
-import urllib.request as URLR
+from urllib import request as URLR
+from urllib import parse as Parse
 from bs4 import BeautifulSoup as BS
 # from PIL import Image
 
@@ -39,7 +40,7 @@ def downloadImage(pageUrl: str, imageUrl: str, pathDir: str):
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
     }
     if not imageUrl.startswith('http'):
-        imageUrl = pageUrl + "/" + imageUrl
+        imageUrl = Parse.urljoin(pageUrl, imageUrl)
     req = URLR.Request(imageUrl, headers=HEADERS)
     response = URLR.urlopen(req)
     if not os.path.exists(pathDir):
@@ -50,7 +51,7 @@ def downloadImage(pageUrl: str, imageUrl: str, pathDir: str):
     file.write(response.read())
     file.close()
 
-    print(f"Image {imageUrl} downloaded and saved at {absp}")
+    # print(f"Image {imageUrl} downloaded and saved at {absp}")
 
 def isExtention(src: str, extention: list)-> bool:
     """Check if the URL ends with one of the specified extensions"""
@@ -59,9 +60,9 @@ def isExtention(src: str, extention: list)-> bool:
             return True
     return False
 
-def parse_urls(soup, tag: str, source: str) -> list:
+def parseUrls(soup, tag: str, source: str) -> list:
     res = []
-    for i in soup.find_all(f"{tag}", {f"{source}":True}):
+    for i in soup.find_all(tag, {source:True}):
         res.append(i[source])
     return res
 
@@ -69,23 +70,31 @@ def scrapePage(url: str, pathDir: str, depth: int, maxDepth: int, extension=[".j
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
     }
-    
+
     req = URLR.Request(url, headers=HEADERS)
     response = URLR.urlopen(req).read()
     soup = BS(response, 'html.parser')
-    imgUrls = parse_urls(soup, "img", "src")
-    # imgUrls = soup.find_all("img", {"src":True})
-    # for tag in imgUrls:
-    #     if tag['src'] and isExtention(tag['src'], extension):
-    #         downloadImage(url, tag['src'], pathDir)
 
+    imgUrls = parseUrls(soup, "img", "src")
     for tag in imgUrls:
         if isExtention(tag, extension):
             downloadImage(url, tag, pathDir)
+    
+    pictureUrls = parseUrls(soup, "pictures", "srcset")
+    for pic in pictureUrls:
+        if isExtention(pic, extension):
+            downloadImage(url, pic, pathDir)
 
-    if depth == maxDepth:
+    if depth >= maxDepth:
         return
 
-    pageUrls = parse_urls(soup, "a", "href")
-    # print(pageUrls)
-    
+    pageUrls = parseUrls(soup, "a", "href")
+    for page in pageUrls:
+        if not page.startswith("#") and not page == "index.html":
+            if not page.startswith("http"):
+                page = Parse.urljoin(url, page)
+            try:
+                print(f"Found link: {page} at depth {depth + 1}")
+                scrapePage(page, pathDir, depth + 1, maxDepth)
+            except URLR.HTTPError as e:
+                print(f"Error scraping {page}: {e}")
