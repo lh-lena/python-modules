@@ -12,14 +12,14 @@ def main():
         else:
             scrapePage(data["url"], data["path"], 1, 1)
 
-    except AssertionError as msg:
-        print("Error: ", msg)
+    except AssertionError as e:
+        print(f"Error: {e}")
         return -1
-    except ValueError as msg:
-        print("Error: ", msg)
+    except ValueError as e:
+        print(f"Error: {e}")
         return -1
-    except TypeError as msg:
-        print("Error: ", msg)
+    except TypeError as e:
+        print(f"Error: {e}")
         return -1
     except HTTPError as e:
         print(f"Error: {e}")
@@ -27,11 +27,15 @@ def main():
     except URLError as e:
         print(f"Error: {e}")
         return -1
-    except IsADirectoryError as msg:
-        print("Error: ", msg)
+    except IsADirectoryError as e:
+        print(f"Error: {e}")
         return -1
     except Exception as e:
         print(f"Error: {e}")
+        return -1
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt")
+        return -1 
 
 if __name__ == "__main__":
     main()
