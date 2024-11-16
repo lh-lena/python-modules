@@ -14,3 +14,6 @@ The program will download the following extensions by default:
 • .png
 • .gif
 • .bmp
+
+Url for testing:
+    https://books.toscrape.com/
