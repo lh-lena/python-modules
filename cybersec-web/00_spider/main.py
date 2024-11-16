@@ -31,7 +31,7 @@ def main():
         print("Error: ", msg)
         return -1
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     main()

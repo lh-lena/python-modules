@@ -2,6 +2,8 @@ import os
 from urllib import request as URLR
 from urllib import parse as Parse
 from bs4 import BeautifulSoup as BS
+from lxml import html
+import requests
 # from PIL import Image
 
 def parseOptions(args: list) -> dict:
@@ -36,22 +38,22 @@ def parseOptions(args: list) -> dict:
     return data
 
 def downloadImage(pageUrl: str, imageUrl: str, pathDir: str):
-    HEADERS = {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
-    }
+
     if not imageUrl.startswith('http'):
         imageUrl = Parse.urljoin(pageUrl, imageUrl)
-    req = URLR.Request(imageUrl, headers=HEADERS)
-    response = URLR.urlopen(req)
+
     if not os.path.exists(pathDir):
         os.makedirs(pathDir, exist_ok=True)
+
     absp = os.path.abspath(pathDir)
     filePath = absp + "/" + os.path.basename(imageUrl)
-    file = open(filePath, "wb")
-    file.write(response.read())
-    file.close()
 
-    # print(f"Image {imageUrl} downloaded and saved at {absp}")
+    response = requests.get(imageUrl, stream=True)
+    if response.status_code == 200:
+        file = open(filePath, "wb")
+        for chunk in response.iter_content(1024):
+            file.write(chunk)
+        file.close()
 
 def isExtention(src: str, extention: list)-> bool:
     """Check if the URL ends with one of the specified extensions"""
@@ -71,26 +73,30 @@ def scrapePage(url: str, pathDir: str, depth: int, maxDepth: int, extension=[".j
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
     }
 
-    req = URLR.Request(url, headers=HEADERS)
-    response = URLR.urlopen(req).read()
-    soup = BS(response, 'html.parser')
-
-    imgUrls = parseUrls(soup, "img", "src")
-    for tag in imgUrls:
-        if isExtention(tag, extension):
-            downloadImage(url, tag, pathDir)
+    try:
+        response = requests.get(url, headers=HEADERS)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching {url}: {e}")
+        return
     
-    pictureUrls = parseUrls(soup, "pictures", "srcset")
-    for pic in pictureUrls:
-        if isExtention(pic, extension):
-            downloadImage(url, pic, pathDir)
+    tree = html.fromstring(response.content)
+    srcs = tree.xpath('//img/@src')
+    # srcs = tree.xpath('//picture/@srcset')
+    i = 0
+    for src in srcs:
+        if isExtention(src, extension):
+            downloadImage(url, src, pathDir)
+            i += 1
+            print(f"Downloading {i}", end='\r')
+    print()
 
     if depth >= maxDepth:
         return
 
-    pageUrls = parseUrls(soup, "a", "href")
+    pageUrls = tree.xpath('//a/@href')
     for page in pageUrls:
-        if not page.startswith("#") and not page == "index.html":
+        if not page.startswith("#") and page != "index.html":
             if not page.startswith("http"):
                 page = Parse.urljoin(url, page)
             try:
