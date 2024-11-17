@@ -39,7 +39,7 @@ computeBlockSizedKey("hello", hashlib.sha1, 64)
 #HMAC_SHA1("key", "The quick brown fox jumps over the lazy dog")   = de7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9
 
 """
-
+https://datatracker.ietf.org/doc/html/rfc6238
 https://datatracker.ietf.org/doc/html/rfc4226#page-3
 https://datatracker.ietf.org/doc/html/rfc2104
 
