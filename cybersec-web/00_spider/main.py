@@ -5,7 +5,7 @@ from urllib.error import URLError, HTTPError
 def main():
     try:
         arg = len(sys.argv)
-        assert arg > 1, "spider: missing URL\nUsage: [OPTION]... [URL]..."
+        assert arg > 1, f"{sys.argv[0]}: missing URL\nUsage: [OPTION]... [URL]..."
         data = parseOptions(sys.argv[1:])
         if data["recursive"]:
             scrapePage(data["url"], data["path"], 1, data["depth"])
@@ -21,12 +21,6 @@ def main():
     except TypeError as e:
         print(f"Error: {e}")
         return -1
-    except HTTPError as e:
-        print(f"Error: {e}")
-        return -1
-    except URLError as e:
-        print(f"Error: {e}")
-        return -1
     except IsADirectoryError as e:
         print(f"Error: {e}")
         return -1
@@ -34,8 +28,8 @@ def main():
         print(f"Error: {e}")
         return -1
     except KeyboardInterrupt:
-        print("KeyboardInterrupt")
-        return -1 
+        print("\nKeyboardInterrupt")
+        return -1
 
 if __name__ == "__main__":
     main()

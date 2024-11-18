@@ -1,10 +1,7 @@
 import os
-from urllib import request as URLR
 from urllib import parse as Parse
-from bs4 import BeautifulSoup as BS
 from lxml import html
 import requests
-# from PIL import Image
 
 def parseOptions(args: list) -> dict:
     data = {
@@ -19,11 +16,9 @@ def parseOptions(args: list) -> dict:
         if args[i] == "-r":
             data["recursive"] = True
         elif args[i] == "-l":
-            if i + 1 < size and args[i + 1].isdigit():
-                data["depth"] = int(args[i + 1])
-                i += 1
-            else:
-                raise AssertionError("Option -l requires a numeric depth level")
+            assert i + 1 < size and args[i + 1].isdigit(), "Option -l requires a numeric depth level"
+            data["depth"] = int(args[i + 1])
+            i += 1
         elif args[i] == "-p":
             assert i + 1 < size, "Option -p requires a path"
             data["path"] = args[i + 1]
@@ -53,9 +48,11 @@ def downloadImage(pageUrl: str, imageUrl: str, pathDir: str):
         file = open(filePath, "wb")
         for chunk in response.iter_content(1024):
             file.write(chunk)
-        file.close()
+    file.close()
+    print(f"Downloading {imageUrl} to {absp}")
+    
 
-def isExtention(src: str, extention: list)-> bool:
+def isExtension(src: str, extention: list)-> bool:
     """Check if the URL ends with one of the specified extensions"""
     for ext in extention:
         if src.lower().endswith(ext):
@@ -79,17 +76,13 @@ def scrapePage(url: str, pathDir: str, depth: int, maxDepth: int, extension=[".j
     except requests.exceptions.RequestException as e:
         print(f"Error fetching {url}: {e}")
         return
-    
+
     tree = html.fromstring(response.content)
     srcs = tree.xpath('//img/@src')
     # srcs = tree.xpath('//picture/@srcset')
-    i = 0
     for src in srcs:
-        if isExtention(src, extension):
+        if isExtension(src, extension):
             downloadImage(url, src, pathDir)
-            i += 1
-            print(f"Downloading {i}", end='\r')
-    print()
 
     if depth >= maxDepth:
         return
@@ -99,8 +92,5 @@ def scrapePage(url: str, pathDir: str, depth: int, maxDepth: int, extension=[".j
         if not page.startswith("#") and page != "index.html":
             if not page.startswith("http"):
                 page = Parse.urljoin(url, page)
-            try:
-                print(f"Found link: {page} at depth {depth + 1}")
-                scrapePage(page, pathDir, depth + 1, maxDepth)
-            except URLR.HTTPError as e:
-                print(f"Error scraping {page}: {e}")
+            print(f"Found link: {page} at depth {depth + 1}")
+            scrapePage(page, pathDir, depth + 1, maxDepth)
