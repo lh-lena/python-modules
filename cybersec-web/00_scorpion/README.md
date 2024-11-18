@@ -8,3 +8,6 @@ Usage:
 
 JPEG starts with b'\xFF\xD8' (hexadecimal FFD8).
 PNG starts with b'\x89PNG\r\n\x1a\n'
+
+exif-samples:
+https://github.com/ianare/exif-samples
