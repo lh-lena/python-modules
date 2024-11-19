@@ -11,3 +11,4 @@ PNG starts with b'\x89PNG\r\n\x1a\n'
 
 exif-samples:
 https://github.com/ianare/exif-samples
+https://pixelpeeper.com/photos
