@@ -119,6 +119,9 @@ def downloadImage(pageUrl: str, imageUrl: str, pathDir: str):
     }
     try:
         response = requests.get(imageUrl, headers=HEADERS, stream=True)
+        if "image" not in response.headers.get("Content-Type", ""):
+            print(f"Invalid content type for URL: {imageUrl}")
+            return
     except requests.exceptions.RequestException:
         return
     file = open(filePath, "wb")

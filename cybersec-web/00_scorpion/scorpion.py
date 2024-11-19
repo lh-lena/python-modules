@@ -1,45 +1,70 @@
-import exif
 import sys
+from PIL import Image, UnidentifiedImageError
+from PIL.ExifTags import TAGS
+import chardet
 
-def main():
+def scorpion():
     try:
         ac = len(sys.argv)
         assert ac >= 2, f"Missing file\nUsage: {sys.argv[0]} FILE1 [FILE2 ...]"
         data = parseInput(sys.argv[1:])
-        scorpion(data)
+        for file in data:
+            try:
+                image = Image.open(file)
+                get_basic_metadata(image)
+                get_exifdata(image)
+            except UnidentifiedImageError as e:
+                print(f"{sys.argv[0]}: Error: {e}")
+                continue
     except AssertionError as e:
         print(f"{sys.argv[0]}: Error: {e}")
         return -1
     except Exception as e:
         print(f"{sys.argv[0]}: Error: {e}")
         return -1
+        
 
 def parseInput(argv: str, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]) -> list:
     data = []
     for i in argv:
         if i and any(i.lower().endswith(ext) for ext in extension):
             data.append(i)
-    assert data, "Missing file\nUsage: main.py FILE1 [FILE2 ...]"
+    assert data, "Missing file\nUsage: scorpion.py FILE1 [FILE2 ...]"
     return data
 
-def scorpion(data: list):
-    for file in data:
-        try:
-            with open(file, "rb") as f:
-                image = exif.Image(f)
-                # tags = sorted(image.list_all())
-                tags = image.list_all()
-                if not tags:
-                    print(f"File {file}: No EXIF data found.")
-                    continue
-            print(f"Metadata from file: {file}")
-            for tag in tags:
-                if tag not in ('JPEGThumbnail', 'TIFFThumbnail', 'Filename', 'EXIF MakerNote'):
-                    print("%s: %s" % (tag, image.get(tag)))
-        except FileNotFoundError:
-            print(f"File {file} not found.")
-        except Exception as e:
-            print(f"An error occurred while processing {file}: {e}")
+def get_basic_metadata(image):
+    info_dict = {
+        "Filename": image.filename,
+        "Image Size": image.size,
+        "Image Height": image.height,
+        "Image Width": image.width,
+        "Image Format": image.format,
+        "Image Mode": image.mode,
+        "Image is Animated": getattr(image, "is_animated", False),
+        "Frames in Image": getattr(image, "n_frames", 1)
+    }
+    print()
+    for label, value in info_dict.items():
+        print(f"{label:25}: {value}")
+
+def get_exifdata(image):
+    exif_data = image.getexif()
+    if exif_data:
+        print("\nEXIF Metadata:")
+        for tag_id, value in exif_data.items():
+            tag_name = TAGS.get(tag_id, tag_id)
+            if isinstance(value, bytes):
+                value = decode_with_chardet(value)
+            print(f"{tag_name}: {value}")
+    else:
+        print("No EXIF metadata found\n")
+
+def decode_with_chardet(value):
+    result = chardet.detect(value)
+    encoding = result['encoding']
+    if not encoding:
+        return "[Binary data]"
+    return value.decode(encoding, errors='replace')
 
 if __name__ == "__main__":
-    main()
+    scorpion()
