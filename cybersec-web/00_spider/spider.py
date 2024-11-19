@@ -3,7 +3,7 @@ import sys
 from urllib.parse import urljoin
 import requests
 
-def main():
+def spider():
     try:
         arg = len(sys.argv)
         assert arg > 1, f"{sys.argv[0]}: missing URL\nUsage: [-rlp]... [URL]...\n\n-r:  recursively downloads the images in a URL\n-l [N]: indicates the maximum depth level of the recursive download\n-p [PATH]: indicates the path where the downloaded files will be saved"
@@ -73,8 +73,7 @@ def scrapePage(url: str, pathDir: str, depth: int, maxDepth: int, extension=[".j
     try:
         response = requests.get(url, headers=HEADERS, allow_redirects=True)
         response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching {url}: {e}")
+    except requests.exceptions.RequestException:
         return
     srcs = extractData(response.text, '<img ', 'src="', '"')
     srcs_pct = extractData(response.text, '<source ', 'srcset="', '"')
@@ -120,14 +119,13 @@ def downloadImage(pageUrl: str, imageUrl: str, pathDir: str):
     }
     try:
         response = requests.get(imageUrl, headers=HEADERS, stream=True)
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching {pageUrl}: {e}")
+    except requests.exceptions.RequestException:
         return
     file = open(filePath, "wb")
     for chunk in response.iter_content(1024):
         file.write(chunk)
     file.close()
-    # print(f"Downloading {imageUrl}")
+    print(f"Downloading {imageUrl}")
 
 def isExtension(src: str, extension: list)-> bool:
     """Check if the URL ends with one of the specified extensions"""
@@ -177,4 +175,4 @@ def url_join(base_url: str, relt_path: str):
 
 
 if __name__ == "__main__":
-    main()
+    spider()
