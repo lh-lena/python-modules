@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 import sys
 import re
@@ -27,17 +28,17 @@ tags_attributes = {
 def spider():
     try:
         arg = len(sys.argv)
-        # parser = argparse.ArgumentParser(
-        #             prog='spider',
-        #             description='Image scraping')
+        parser = argparse.ArgumentParser(
+                    prog='spider',
+                    description='Image scraping')
         
-        # parser.add_argument('-url', '--url', nargs=1, help='URL to a website')
-        # parser.add_argument('-r', '--recursion', action='store_true', default=False, help='recursively downloads the images in a URL')
-        # parser.add_argument('-l', '--level', action="store", type=int, default=5, help='the maximum depth level of the recursive download')
-        # parser.add_argument('-p', '--path', action="store", default='./data', help='the path where the downloaded files will be saved')
-        # args = parser.parse_args()
-        # print(args.recursive, args.level, args.path, args.url)
-        assert arg > 1, f"{sys.argv[0]}: missing URL\n\nUsage: {sys.argv[0]} [-rlp] [URL]\n\n-r: recursively downloads the images in a URL\n-l [N]: the maximum depth level of the recursive download\n-p [PATH]: the path where the downloaded files will be saved"
+        parser.add_argument('url', help='URL to a website')
+        parser.add_argument('-r', '--recursion', action='store_true', help='Recursively download images')
+        parser.add_argument('-l', '--level', type=int, default=unsg_int, help='Maximum recursion depth')
+        parser.add_argument('-p', '--path', default='./data', help='Download path')
+
+        args = parser.parse_args()
+        # assert arg > 1, f"{sys.argv[0]}: missing URL\n\nUsage: {sys.argv[0]} [-rlp] [URL]\n\n-r: recursively downloads the images in a URL\n-l [N]: the maximum depth level of the recursive download\n-p [PATH]: the path where the downloaded files will be saved"
         data = parseOptions(sys.argv[1:])
         if data["recursion"]:
             scrapePage(data["url"], data["path"], 1, data["depth"]) 
@@ -63,35 +64,10 @@ def spider():
         print()
         return 6
 
-def parseOptions(args: list) -> dict:
-    data = {
-        "recursion": False,
-        "depth": 5,
-        "path": "./data/",
-        "url": None
-    }
-    i = 0
-    size = len(args)
-    while (i < size):
-        if args[i] == "-r":
-            data["recursion"] = True
-        elif args[i] == "-l":
-            if not i + 1 < size or not args[i + 1].isdigit():
-                raise Exception("Option -l requires a positive numeric depth level")
-            data["depth"] = int(args[i + 1])
-            i += 1
-        elif args[i] == "-p":
-            assert i + 1 < size, "Option -p requires a path"
-            data["path"] = args[i + 1]
-            i += 1
-        elif args[i].startswith("http"):
-            data["url"] = args[i]
-        else:
-            raise Exception("Invalid option")
-        i += 1
-    if not data["url"]:
-        assert Exception("URL must be provided")
-    return data
+def unsg_int(val: int):
+    if val <= 0:
+        raise argparse.ArgumentTypeError(f"{val} must be a positive integer")
+    return val
 
 def scrapePage(url: str, pathDir: str, depth: int, maxDepth: int, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]):
     HEADERS = {
