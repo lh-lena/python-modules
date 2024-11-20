@@ -40,6 +40,22 @@ You can check if your program is working properly by comparing generated passwor
 
 !! oathtool –totp $(cat key.hex)
 
+**-------------------------------------------------------------------**
+
+Reference:
+https://medium.com/@short_sparrow/how-hmac-works-step-by-step-explanation-with-examples-f4aff5efb40e
+https://mdamiruddin.medium.com/introduction-to-cryptography-tryhackme-writeup-walkthrough-75a1a198b973
+
+
+https://datatracker.ietf.org/doc/html/rfc6238
+https://datatracker.ietf.org/doc/html/rfc4226#page-3
+https://datatracker.ietf.org/doc/html/rfc2104
+
+https://en.wikipedia.org/wiki/HMAC
+https://en.wikipedia.org/wiki/HMAC-based_one-time_password
+https://www.geeksforgeeks.org/python-add-trailing-zeros-to-string/
+https://www.geeksforgeeks.org/hashlib-module-in-python/
+https://www.geeksforgeeks.org/passing-function-as-an-argument-in-python/
 
 Here is a list of symbols used in this document.
 
