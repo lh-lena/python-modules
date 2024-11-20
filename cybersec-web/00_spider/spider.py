@@ -1,15 +1,46 @@
 import os
 import sys
-from urllib.parse import urljoin
+import re
 import requests
+import argparse
+from urllib.parse import urljoin
+from bs4 import BeautifulSoup as BS
+
+tags_attributes = {
+    'img': ['src', 'srcset'],
+    'source': ['src', 'srcset'],
+    'a': ['href'],
+    'link': ['href'],
+    'meta': ['content'],
+    'div': ['style'],
+    'video': ['poster', 'srs'],
+	'audio': ['src'],
+    'embed': ['src'],
+    'object': ['data'],
+    'background': ['url'],
+    'background-image': ['url'],
+    'svg': ['href'],
+    'span': ['style'],
+    'p': ['style']
+}
 
 def spider():
     try:
         arg = len(sys.argv)
-        assert arg > 1, f"{sys.argv[0]}: missing URL\nUsage: [-rlp]... [URL]...\n\n-r:  recursively downloads the images in a URL\n-l [N]: indicates the maximum depth level of the recursive download\n-p [PATH]: indicates the path where the downloaded files will be saved"
+        # parser = argparse.ArgumentParser(
+        #             prog='spider',
+        #             description='Image scraping')
+        
+        # parser.add_argument('-url', '--url', nargs=1, help='URL to a website')
+        # parser.add_argument('-r', '--recursion', action='store_true', default=False, help='recursively downloads the images in a URL')
+        # parser.add_argument('-l', '--level', action="store", type=int, default=5, help='the maximum depth level of the recursive download')
+        # parser.add_argument('-p', '--path', action="store", default='./data', help='the path where the downloaded files will be saved')
+        # args = parser.parse_args()
+        # print(args.recursive, args.level, args.path, args.url)
+        assert arg > 1, f"{sys.argv[0]}: missing URL\n\nUsage: {sys.argv[0]} [-rlp] [URL]\n\n-r: recursively downloads the images in a URL\n-l [N]: the maximum depth level of the recursive download\n-p [PATH]: the path where the downloaded files will be saved"
         data = parseOptions(sys.argv[1:])
-        if data["recursive"]:
-            scrapePage(data["url"], data["path"], 1, data["depth"])
+        if data["recursion"]:
+            scrapePage(data["url"], data["path"], 1, data["depth"]) 
         else:
             scrapePage(data["url"], data["path"], 1, 1)
 
@@ -34,7 +65,7 @@ def spider():
 
 def parseOptions(args: list) -> dict:
     data = {
-        "recursive": False,
+        "recursion": False,
         "depth": 5,
         "path": "./data/",
         "url": None
@@ -43,7 +74,7 @@ def parseOptions(args: list) -> dict:
     size = len(args)
     while (i < size):
         if args[i] == "-r":
-            data["recursive"] = True
+            data["recursion"] = True
         elif args[i] == "-l":
             if not i + 1 < size or not args[i + 1].isdigit():
                 raise Exception("Option -l requires a positive numeric depth level")
@@ -64,10 +95,7 @@ def parseOptions(args: list) -> dict:
 
 def scrapePage(url: str, pathDir: str, depth: int, maxDepth: int, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]):
     HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-    "Connection": "keep-alive"
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
     }
 
     try:
@@ -75,6 +103,19 @@ def scrapePage(url: str, pathDir: str, depth: int, maxDepth: int, extension=[".j
         response.raise_for_status()
     except requests.exceptions.RequestException:
         return
+    html_content = response.text
+    soup = BS(html_content, 'html.parser')
+    imgs = []
+    for tag, attrs in tags_attributes.items():
+        for attr in attrs:
+            elems = soup.find_all(tag, attrs={attr: True})
+            if elems:
+                for el in elems:
+                    imgs.append(el[attr])
+                # srcs = [el[attr] for el in elems]
+                # imgs.extend(srcs)
+    print(imgs)
+    return
     srcs = extractData(response.text, '<img ', 'src="', '"')
     srcs_pct = extractData(response.text, '<source ', 'srcset="', '"')
     srcs.extend(srcs_pct)
@@ -112,10 +153,7 @@ def downloadImage(pageUrl: str, imageUrl: str, pathDir: str):
     filePath = absp + "/" + os.path.basename(imageUrl)
 
     HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-    "Connection": "keep-alive"
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
     }
     try:
         response = requests.get(imageUrl, headers=HEADERS, stream=True)
@@ -156,26 +194,6 @@ def extractData(data, tag, attr_start, attr_end) -> list:
             links.append(elem)
         pos = link_end
     return links
-
-def url_join(base_url: str, relt_path: str):
-    scheme_dom = base_url.partition("://")
-    dom_path = scheme_dom[2].partition("/")
-    base_path = dom_path[2]
-    if not base_path.endswith("/"):
-        base_path += "/"
-    base_parts = base_path.split("/")[:-1]
-    relt_parts = relt_path.split("/")
-    for p in relt_parts:
-        if p == "..":
-            if base_parts:
-                base_parts.pop()
-        elif p == "." or p == "":
-            continue
-        else:
-            base_parts.append(p)
-    res = "/".join(base_parts)
-    return (f"{scheme_dom[0]}{scheme_dom[1]}{dom_path[0]}/{res}")
-
 
 if __name__ == "__main__":
     spider()
