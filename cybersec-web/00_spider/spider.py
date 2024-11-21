@@ -4,7 +4,7 @@ import sys
 import re
 import requests
 import argparse
-from urllib.parse import urljoin
+import urllib.parse as Parse
 from bs4 import BeautifulSoup as BS
 
 tags_attributes = {
@@ -22,8 +22,11 @@ tags_attributes = {
     'background-image': ['url'],
     'svg': ['href'],
     'span': ['style'],
-    'p': ['style']
+    'p': ['style'],
+    'html': ['style']
 }
+
+pattern = rf'\b(?:https?|ftp)://[^\s]+(?:.jpg|.jpeg|.png|.gif|.bmp)\b'
 
 def spider():
     try:
@@ -33,17 +36,19 @@ def spider():
                     description='Image scraping')
         
         parser.add_argument('url', help='URL to a website')
-        parser.add_argument('-r', '--recursion', action='store_true', help='Recursively download images')
-        parser.add_argument('-l', '--level', type=int, default=unsg_int, help='Maximum recursion depth')
+        parser.add_argument('-r', '--recursive', action='store_true', help='Recursively download images')
+        parser.add_argument('-l', '--level', type=unsg_int, default=5, help='Maximum recursion depth')
         parser.add_argument('-p', '--path', default='./data', help='Download path')
 
         args = parser.parse_args()
-        # assert arg > 1, f"{sys.argv[0]}: missing URL\n\nUsage: {sys.argv[0]} [-rlp] [URL]\n\n-r: recursively downloads the images in a URL\n-l [N]: the maximum depth level of the recursive download\n-p [PATH]: the path where the downloaded files will be saved"
-        data = parseOptions(sys.argv[1:])
-        if data["recursion"]:
-            scrapePage(data["url"], data["path"], 1, data["depth"]) 
+        print(f"Url       : {args.url}")
+        print(f"Recursive : {args.recursive}")
+        print(f"Level     : {args.level}")
+        print(f"Path      : {args.path}")
+        if args.recursive:
+            scrapePage(args.url, args.path, 1, args.depth)
         else:
-            scrapePage(data["url"], data["path"], 1, 1)
+            downloadImage(args.url, args.path)
 
     except AssertionError as e:
         print(f"Error: {e}")
@@ -69,74 +74,80 @@ def unsg_int(val: int):
         raise argparse.ArgumentTypeError(f"{val} must be a positive integer")
     return val
 
-def scrapePage(url: str, pathDir: str, depth: int, maxDepth: int, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]):
+def scrapePage(base_url: str, pathDir: str, depth: int, maxDepth: int, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]):
     HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
     }
 
     try:
-        response = requests.get(url, headers=HEADERS, allow_redirects=True)
+        response = requests.get(base_url, headers=HEADERS, allow_redirects=True)
         response.raise_for_status()
     except requests.exceptions.RequestException:
         return
-    html_content = response.text
+    html_content = response.content
+    if isExtension(base_url, extension):
+        downloadImage(base_url, pathDir)
+    if not depth >= maxDepth or maxDepth <= 0:
+        return
     soup = BS(html_content, 'html.parser')
-    imgs = []
+    urls = []
+    srcs = []
     for tag, attrs in tags_attributes.items():
-        for attr in attrs:
-            elems = soup.find_all(tag, attrs={attr: True})
-            if elems:
-                for el in elems:
-                    imgs.append(el[attr])
-                # srcs = [el[attr] for el in elems]
-                # imgs.extend(srcs)
-    print(imgs)
-    return
-    srcs = extractData(response.text, '<img ', 'src="', '"')
-    srcs_pct = extractData(response.text, '<source ', 'srcset="', '"')
-    srcs.extend(srcs_pct)
-    srcs_img_css = extractData(response.text, 'background','url(', ')')
-    srcs.extend(srcs_img_css)
-    print(f"{len(srcs)} -> pct: {len(srcs_pct)}, img_css: {len(srcs_img_css)}")
-    if not srcs:
-        return print(f"No images found")
-    for src in srcs:
-        if src and isExtension(src, extension):
-            downloadImage(url, src, pathDir)
+            for elem in soup.find_all(tag):
+                for attr in attrs:
+                    val = elem.get(attr)
+                    if not val:
+                        continue
+                    if attr == 'style':
+                        srcs = re.findall(r'url\((.*?)\)', val)
+                    else:
+                        if isRelative(val) and isExtension(val, extension):
+                            urls.append(Parse.urljoin(base_url, val))
+                    for src in srcs:
+                        src = src.strip(' "\'')
+                        if isRelative(src) and isExtension(src):
+                            urls.append(Parse.urljoin(base_url, src))
+    try:
+        regex_urls = re.findall(pattern, html_content.decode())
+    except UnicodeDecodeError:
+        regex_urls = []
+    print(len(urls))
+    urls.extend(regex_urls)
+    print(len(regex_urls))
+    print(len(urls))
+    for url in regex_urls:
+        downloadImage(url, pathDir)
 
     if depth >= maxDepth:
         print(f"\tdepth : {depth}")
         return
 
-    pageUrls = extractData(response.text, '<a ', 'href="', '"')
-    print(f"len pageUrls-> {len(pageUrls)}")
-    for page in pageUrls:
-        if "#" not in page and page != "index.html":
-            if not page.startswith("http"):
-                page = urljoin(url, page)
-            print(f"Found link: {page} at depth {depth + 1}")
-            scrapePage(page, pathDir, depth + 1, maxDepth)
+    # pageUrls = extractData(response.text, '<a ', 'href="', '"')
+    # print(f"len pageUrls-> {len(pageUrls)}")
+    # for page in pageUrls:
+    #     if "#" not in page and page != "index.html":
+    #         if not page.startswith("http"):
+    #             page = urljoin(url, page)
+    #         print(f"Found link: {page} at depth {depth + 1}")
+    #         scrapePage(page, pathDir, depth + 1, maxDepth)
 
 
-def downloadImage(pageUrl: str, imageUrl: str, pathDir: str):
-
-    if not imageUrl.startswith('http'):
-        imageUrl = urljoin(pageUrl, imageUrl)
-
-    if not os.path.exists(pathDir):
-        os.makedirs(pathDir, exist_ok=True)
-    absp = os.path.abspath(pathDir)
-    filePath = absp + "/" + os.path.basename(imageUrl)
+def downloadImage(imageUrl: str, pathDir: str):
+    """Creates directories based on the URL path and saves the image to the final directory"""
+    parsed_url = Parse.urlparse(imageUrl)
+    path = pathDir + os.path.dirname(parsed_url.path)
+    filePath = path + "/" + os.path.basename(imageUrl)
+    if not os.path.exists(path):
+        os.makedirs(path, exist_ok=True)
+    else:
+        return print(f"Warning  : Image {imageUrl} already saved")
 
     HEADERS = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
     }
     try:
         response = requests.get(imageUrl, headers=HEADERS, stream=True)
-        if "image" not in response.headers.get("Content-Type", ""):
-            print(f"Invalid content type for URL: {imageUrl}")
-            return
-    except requests.exceptions.RequestException:
+    except requests.exceptions.RequestException as e:
         return
     file = open(filePath, "wb")
     for chunk in response.iter_content(1024):
@@ -144,15 +155,18 @@ def downloadImage(pageUrl: str, imageUrl: str, pathDir: str):
     file.close()
     print(f"Downloading {imageUrl}")
 
-def isExtension(src: str, extension: list)-> bool:
+def isExtension(src: str, extensions: list)-> bool:
     """Check if the URL ends with one of the specified extensions"""
-    for ext in extension:
-        if src.lower().endswith(ext):
-            return True
+    return any(src.lower().endswith(ext) for ext in extensions)
+
+def isRelative(url: str) -> bool:
+    """Check if a URL is relative"""
+    if not re.match(r'^(?:https?|ftp):', url) and not '#' in url:
+        return True
     return False
 
 def extractData(data, tag, attr_start, attr_end) -> list:
-    """Search for all tags specified as a parameter tag """
+    """Search for all tags specified as a parameter tag"""
     links = []
     pos = 0
     while True:
