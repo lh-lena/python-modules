@@ -1,7 +1,14 @@
+#!/usr/bin/env python3
 import sys
+import os
+from datetime import datetime
 from PIL import Image, UnidentifiedImageError
 from PIL.ExifTags import TAGS
 import chardet
+
+''' to run with all .jpg images from data directory
+find data -name "*.jpg" | xargs ./scorpion.py
+'''
 
 def scorpion():
     try:
@@ -12,6 +19,7 @@ def scorpion():
             try:
                 image = Image.open(file)
                 get_basic_metadata(image)
+                get_data_attr(file)
                 get_exifdata(image)
             except UnidentifiedImageError as e:
                 print(f"{sys.argv[0]}: Error: {e}")
@@ -22,7 +30,12 @@ def scorpion():
     except Exception as e:
         print(f"{sys.argv[0]}: Error: {e}")
         return -1
-        
+
+def get_data_attr(image_path):
+    file_stat = os.stat(image_path)
+    creation_time = datetime.fromtimestamp(file_stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S')
+
+    print(f"Creation Date: {creation_time}")
 
 def parseInput(argv: str, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]) -> list:
     data = []
@@ -56,6 +69,11 @@ def get_exifdata(image):
             if isinstance(value, bytes):
                 value = decode_with_chardet(value)
             print(f"{tag_name}: {value}")
+        creation_date = exif_data.get("DateTimeOriginal")
+        modification_date = exif_data.get("DateTime")
+        print(f"Creation Date           : {creation_date}")
+        print(f"Modification Date       : {modification_date}")
+
     else:
         print("No EXIF metadata found\n")
 
@@ -63,7 +81,7 @@ def decode_with_chardet(value):
     result = chardet.detect(value)
     encoding = result['encoding']
     if not encoding:
-        return "[Binary data]"
+        return ""
     return value.decode(encoding, errors='replace')
 
 if __name__ == "__main__":
