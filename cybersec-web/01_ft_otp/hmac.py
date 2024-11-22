@@ -1,7 +1,8 @@
 import hashlib
 
-def HMAC(key: str, m: str, hash, l:int=20, block_size=64):
+def HMAC(key: str, m: str, hash, l=20, block_size=64):
     """
+    to hash msg
     :param str Key: Authentication key
     :param str m: Is the message to be authenticated
     :param func hash: The hash function to use (e.g. SHA-1)
@@ -10,6 +11,11 @@ def HMAC(key: str, m: str, hash, l:int=20, block_size=64):
     """
     block_sized_key = computeBlockSizedKey(key, hash, block_size)
 
+    #start out by storing key in pads
+    bzero( k_ipad, sizeof k_ipad)
+    bzero( k_opad, sizeof k_opad)
+    bcopy( key, k_ipad, key_len)
+    bcopy( key, k_opad, key_len)
     # ipad = 
 
     return True
