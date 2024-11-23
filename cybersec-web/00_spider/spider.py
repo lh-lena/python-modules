@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 import os
-import sys
 import re
+import time
 import requests
 import argparse
 from colorama import Fore, Style
-from urllib.parse import urljoin, urlparse
+from urllib import parse
 from bs4 import BeautifulSoup as BS
 
 tags_attributes = {
@@ -25,11 +25,14 @@ tags_attributes = {
     'html': ['style']
 }
 
-# pattern = rf'\b(http|ftp|https)://[^\s]+(?:.jpg|.jpeg|.png|.gif|.bmp|.index.html)\b'
-# pattern = r'(https?:\/\/[^\s\'"<>]+)'
-pattern = r'(http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])'
+# pattern = rf'\b(http|ftp|https)://[^\s]+(?:.jpg|.jpeg|.png|.gif|.bmp|.index.html|/)\b'
+# pattern = r'(http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])'
+pattern = r'(http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])(?!(?:\.xml)(?=\s|$))'
+
 # pattern = r'(?:https?|ftp):\/\/[^\s\'"<>#]+(?:\.[^\s\'"<>#]+)*(?:\/[^\s\'"<>#]*)?'
 # pattern = r'(http|ftp|https):\/\/(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:\/[^\s\'"<>#=]*)?[^=]'
+# pattern = r'((https?://|ftp://|file://)[^\s"\'>]+|/[^"\'>]+)'
+
 
 def spider():
     try:
@@ -47,7 +50,8 @@ def spider():
             raise argparse.ArgumentTypeError(f"{args.level} must be a positive integer")
         log(args.url, args.recursive, 0, args.level)
         print_colored_flags("[INFO]: ", f"Path: {os.path.abspath(args.path)}", Fore.BLUE)
-        scrapePage(args.url, args.path, 0, args.level, args.recursive)
+        visited_urls = set()
+        scrapePage(args.url, args.path, 0, args.level, args.recursive, visited_urls)
 
     except AssertionError as e:
         print_colored_flags("[ERROR]: ", e, Fore.RED)
@@ -73,26 +77,30 @@ def log(base_url: str, recursive: bool, depth: int, maxDepth: int):
     print_colored_flags("[INFO]: ", f"Recursive: {recursive}", Fore.BLUE)
     print_colored_flags("[INFO]: ", f"Depth level: {depth + 1}/{maxDepth}", Fore.BLUE)
 
-def scrapePage(base_url: str, pathDir: str, depth: int, maxDepth: int, recursion: bool, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]):
-    HEADERS = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
-    }
+def scrapePage(base_url: str, pathDir: str, depth: int, maxDepth: int, recursion: bool, visited_urls: list, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]):
+    if base_url in visited_urls or depth >= maxDepth:
+        return
+    visited_urls.add(base_url)
 
-    try:
-        response = requests.get(base_url, headers=HEADERS, allow_redirects=True)
-        response.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        return print_colored_flags("[ERROR]: ", e, Fore.RED)
     if isExtension(base_url, extension):
+        log(base_url, recursion, depth, maxDepth)
         downloadImage(base_url, pathDir)
         return
-    html_content = response.content
-    if not html_content or not recursion or depth >= maxDepth:
-        return
     
-    soup = BS(html_content, 'html.parser')
+    response = getResponse(base_url)
+    if not response:
+        return
+
+    content = response.content
+    if not content or not recursion:
+        return
+
+    if '<?xml' in content.decode(errors='ignore'):
+        print("XML")
+        soup = BS(content, "lxml-xml")
+    else:
+        soup = BS(content, 'html.parser')
     urls = []
-    log(base_url, recursion, depth, maxDepth)
     for tag, attrs in tags_attributes.items():
         for elem in soup.find_all(tag):
             for attr in attrs:
@@ -103,50 +111,70 @@ def scrapePage(base_url: str, pathDir: str, depth: int, maxDepth: int, recursion
                     srcs = re.findall(r'url\(["\']?(.*?\.(?:jpg|jpeg|png|gif|bmp))["\']?\)', val)
                     for src in srcs:
                         if isRelative(src) and not '#' in url and not src.endswith('='):
-                            urls.append(urljoin(base_url, src))
+                            urls.append(parse.urljoin(base_url, src))
                 else:
                     if isRelative(val) and isExtension(val, extension):
-                        urls.append(urljoin(base_url, val))
+                        urls.append(parse.urljoin(base_url, val))
     try:
-        regex_urls = re.findall(pattern, html_content.decode())
+        regex_urls = re.findall(pattern, content.decode())
         for url in regex_urls:
             full_url = url[0] + '://' + url[1] + url[2]
             if not '#' in full_url and not full_url.endswith('='):
                 urls.append(full_url)
     except UnicodeDecodeError:
-        regex_urls = []
+        pass
     urls = list(set(urls))
+    i = 0
     for url in urls:
+        i+=1
+        print(f" i = {i} from {len(urls)}")
+        log(url, recursion, depth, maxDepth)
         if isExtension(url, extension):
             downloadImage(url, pathDir)
         else:
-            scrapePage(url, pathDir, depth + 1, maxDepth, recursion)
-    print_colored_flags("INFO ", "DONE", Fore.GREEN)
-    print_colored_flags("INFO ", "DONE", Fore.GREEN)
-    print_colored_flags("INFO ", "DONE", Fore.GREEN)
+            scrapePage(url, pathDir, depth + 1, maxDepth, recursion, visited_urls)
 
 def downloadImage(imageUrl: str, pathDir: str):
     """Creates directories based on the URL path and saves the image to the final directory"""
-    parsed_url = urlparse(imageUrl)
+    parsed_url = parse.urlparse(imageUrl)
     path = pathDir + os.path.dirname(parsed_url.path)
     filePath = os.path.join(path, os.path.basename(imageUrl))
 
     os.makedirs(path, exist_ok=True)
     if os.path.exists(filePath):
         print_colored_flags("[WARNING]: ", f"Image {imageUrl} already saved", Fore.YELLOW)
+        return
 
-    HEADERS = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
-    }
-    try:
-        response = requests.get(imageUrl, headers=HEADERS, stream=True)
-    except requests.exceptions.RequestException as e:
+    response = getResponse(imageUrl)
+    if not response:
         return
     file = open(filePath, "wb")
-    for chunk in response.iter_content(1024):
+    for chunk in response.iter_content(chunk_size=8192):
         file.write(chunk)
     file.close()
     print_colored_flags("[SUCCESS]: ", f"{imageUrl} saved", Fore.GREEN)
+    
+
+def getResponse(url: str):
+    HEADERS = {
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1"
+    }
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=10)
+        response.raise_for_status()
+        return response
+    except requests.exceptions.ConnectTimeout as e:
+        print_colored_flags("[ERROR]: ", "{e}", Fore.RED)
+        return []
+    except requests.exceptions.RequestException as e:
+        print_colored_flags("[ERROR]: ", e, Fore.RED)
+        return []
+
+def isValidUrl(url):
+    parsed = parse.urlparse(url)
+    return bool(parsed.netloc) and bool(parsed.scheme)
 
 def isExtension(src: str, extensions: list)-> bool:
     """Check if the URL ends with one of the specified extensions"""
