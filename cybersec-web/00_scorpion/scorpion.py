@@ -35,7 +35,7 @@ def get_data_attr(image_path):
     file_stat = os.stat(image_path)
     creation_time = datetime.fromtimestamp(file_stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S')
 
-    print(f"Creation Date: {creation_time}")
+    print(f"Creation Date            :{creation_time}")
 
 def parseInput(argv: str, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]) -> list:
     data = []
