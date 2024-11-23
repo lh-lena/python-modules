@@ -48,6 +48,8 @@ def spider():
         args = parser.parse_args()
         if args.level < 0:
             raise argparse.ArgumentTypeError(f"{args.level} must be a positive integer")
+        assert args.url, f"Invalid URL {args.url}"
+        assert args.path, f"Invalid path {args.path}"
         log(args.url, args.recursive, 0, args.level)
         print_colored_flags("[INFO]: ", f"Path: {os.path.abspath(args.path)}", Fore.BLUE)
         visited_urls = set()
@@ -75,7 +77,7 @@ def spider():
 def log(base_url: str, recursive: bool, depth: int, maxDepth: int):
     print_colored_flags("[INFO]: ", f"Processing: {base_url}", Fore.BLUE)
     print_colored_flags("[INFO]: ", f"Recursive: {recursive}", Fore.BLUE)
-    print_colored_flags("[INFO]: ", f"Depth level: {depth + 1}/{maxDepth}", Fore.BLUE)
+    print_colored_flags("[INFO]: ", f"Depth level: {depth}/{maxDepth}", Fore.BLUE)
 
 def scrapePage(base_url: str, pathDir: str, depth: int, maxDepth: int, recursion: bool, visited_urls: list, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]):
     if base_url in visited_urls or depth >= maxDepth:
@@ -96,7 +98,6 @@ def scrapePage(base_url: str, pathDir: str, depth: int, maxDepth: int, recursion
         return
 
     if '<?xml' in content.decode(errors='ignore'):
-        print("XML")
         soup = BS(content, "lxml-xml")
     else:
         soup = BS(content, 'html.parser')
@@ -124,12 +125,9 @@ def scrapePage(base_url: str, pathDir: str, depth: int, maxDepth: int, recursion
     except UnicodeDecodeError:
         pass
     urls = list(set(urls))
-    i = 0
     for url in urls:
-        i+=1
-        print(f" i = {i} from {len(urls)}")
-        log(url, recursion, depth, maxDepth)
         if isExtension(url, extension):
+            log(url, recursion, depth + 1, maxDepth)
             downloadImage(url, pathDir)
         else:
             scrapePage(url, pathDir, depth + 1, maxDepth, recursion, visited_urls)
