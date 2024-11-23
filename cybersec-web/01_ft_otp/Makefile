@@ -11,7 +11,6 @@ make:
 	@chmod +x ft_opt.py
 	@echo [Setup complete. Activate environment using: ". $(ENV_DIR)/bin/activate"]
 
-# Clean environment
 clean:
 	@echo [Removing virtual environment ...]
 	@rm -rf $(ENV_DIR)
@@ -20,6 +19,3 @@ clean:
 re: clean make
 
 .PHONY: all make clean 
-
-# Activate environment
-#. env/bin/activate
