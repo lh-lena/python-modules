@@ -18,4 +18,3 @@ The program will download the following extensions by default:
 Url for testing:
     https://books.toscrape.com/
     
-pip install -r requirements.txt
