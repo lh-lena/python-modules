@@ -40,10 +40,13 @@ You can check if your program is working properly by comparing generated passwor
 
 !! oathtool –totp $(cat key.hex)
 
+tp -dc a-zA-Z0-9 < /dev/urandom | head -c 12
+
 **-------------------------------------------------------------------**
 
 Reference:
 https://medium.com/@short_sparrow/how-hmac-works-step-by-step-explanation-with-examples-f4aff5efb40e
+
 https://mdamiruddin.medium.com/introduction-to-cryptography-tryhackme-writeup-walkthrough-75a1a198b973
 
 
