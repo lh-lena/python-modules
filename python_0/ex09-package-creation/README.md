@@ -9,6 +9,7 @@ installed packages when you type the command "pip list" and display its characte
 when you type "pip show -v ft_package"
 
 Example:
+ <!-- --verbose -->
 $>pip show -v ft_package
 Name: ft_package
 Version: 0.0.1
