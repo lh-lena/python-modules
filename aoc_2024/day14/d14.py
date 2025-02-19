@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-#part2: 43 38 39 48 49 69 98 97 99 
+#part2: 43 38 39 48 49 69 98 97 99 21 
 def d14():
     res = 0
     data = []
