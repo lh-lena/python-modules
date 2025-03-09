@@ -6,12 +6,42 @@ import time
 import datetime
 import hashlib
 import hmac
-from ft_hmac import ft_hmac
+# from ft_hmac import ft_hmac
 from cryptography.fernet import Fernet
 
 KEY = "68656c6c6f68656c6c6f68656c6c6f68656c6c6f"
 MSG = "68656c6c6f68656c6c6f68656c6c6f68656c6c6f"
 TIME_DURATION = 30
+
+def ft_hmac(key: str, msg: str, hash=hashlib.sha1):
+    """
+    Implements the HMAC algorithm.
+    :param hexadecimal str Key: Authentication key
+    :param str msg: Is the message to be authenticated
+    :param func hash: The hash function to use (e.g. SHA-1)
+    Returns: The HMAC digest as a bytes object
+    """
+
+    block_size = hash().block_size
+    key = key
+
+    # Keys longer than block_size are shortened by hashing them
+    if len(key) > block_size:
+        key = hash(key).digest()
+    elif len(key) < block_size:
+        key += b'\x00' * (block_size - len(key))
+
+    ipad = b'\x36' * block_size
+    opad = b'\x5C' * block_size
+    k_ipad = bytes(a ^ b for a, b in zip(ipad, key))
+    k_opad = bytes(a ^ b for a, b in zip(opad, key))
+    
+    h = hash()
+    h.update(k_ipad + msg)
+    inner_hash = h.digest()
+    h = hash()
+    h.update(k_opad + inner_hash)
+    return h.digest()
 
 def ft_opt():
     try:
