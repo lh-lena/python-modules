@@ -29,4 +29,4 @@ print( isinstance(child(), parent))
 
 python -m pdb python-script.py
 
-# shitcode examples https://shitcode.net/latest/language/python
+not good practice: https://shitcode.net/latest/language/python
