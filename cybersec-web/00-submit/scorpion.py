@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 import sys
 import os
+import time
 from datetime import datetime
 from PIL import Image, UnidentifiedImageError
 from PIL.ExifTags import TAGS
-import chardet
+from colorama import Fore, Style
 
 ''' to run with all .jpg images from data directory
 find data -name "*.jpg" | xargs ./scorpion.py
@@ -19,23 +20,23 @@ def scorpion():
             try:
                 image = Image.open(file)
                 get_basic_metadata(image)
-                get_data_attr(file)
+                get_date_attr(file)
                 get_exifdata(image)
             except UnidentifiedImageError as e:
-                print(f"{sys.argv[0]}: Error: {e}")
+                print(f"{Fore.RED}{sys.argv[0]}: Error: {e}{Style.RESET_ALL}")
                 continue
     except AssertionError as e:
-        print(f"{sys.argv[0]}: Error: {e}")
+        print(f"{Fore.RED}{sys.argv[0]}: Error: {e}{Style.RESET_ALL}")
         return -1
     except Exception as e:
-        print(f"{sys.argv[0]}: Error: {e}")
+        print(f"{Fore.RED}{sys.argv[0]}: Error: {e}{Style.RESET_ALL}")
         return -1
 
-def get_data_attr(image_path):
+def get_date_attr(image_path):
     file_stat = os.stat(image_path)
     creation_time = datetime.fromtimestamp(file_stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S')
 
-    print(f"Creation Date            : {creation_time}")
+    print(f"  Creation Date: {creation_time}")
 
 def parseInput(argv: str, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]) -> list:
     data = []
@@ -45,7 +46,7 @@ def parseInput(argv: str, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]) -
     assert data, "Missing file\nUsage: scorpion.py FILE1 [FILE2 ...]"
     return data
 
-def get_basic_metadata(image):
+def get_basic_metadata(image: Image):
     info_dict = {
         "Filename": image.filename,
         "Image Size": image.size,
@@ -58,31 +59,21 @@ def get_basic_metadata(image):
     }
     print()
     for label, value in info_dict.items():
-        print(f"{label:25}: {value}")
+        print(f"  {label}: {value}")
 
-def get_exifdata(image):
-    exif_data = image.getexif()
+def get_exifdata(image: Image):
+    exif_data = image._getexif()
     if exif_data:
-        print("\nEXIF Metadata:")
+        print(f"{Fore.BLUE}\nEXIF Metadata:{Style.RESET_ALL}")
+        exif = {}
         for tag_id, value in exif_data.items():
             tag_name = TAGS.get(tag_id, tag_id)
-            if isinstance(value, bytes):
-                value = decode_with_chardet(value)
-            print(f"{tag_name}: {value}")
-        creation_date = exif_data.get("DateTimeOriginal")
-        modification_date = exif_data.get("DateTime")
-        print(f"Creation Date           : {creation_date}")
-        print(f"Modification Date       : {modification_date}")
+            exif[tag_name] = value
+        for tag, value in exif.items():
+            print(f"  {tag}: {value}")
 
     else:
-        print("No EXIF metadata found\n")
-
-def decode_with_chardet(value):
-    result = chardet.detect(value)
-    encoding = result['encoding']
-    if not encoding:
-        return ""
-    return value.decode(encoding, errors='replace')
+        print(f"{Fore.YELLOW}No EXIF metadata found\n{Style.RESET_ALL}")
 
 if __name__ == "__main__":
     scorpion()
