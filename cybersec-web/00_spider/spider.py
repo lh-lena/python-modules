@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 import re
-import time
 import requests
 import argparse
 from colorama import Fore, Style
@@ -10,6 +9,7 @@ from bs4 import BeautifulSoup as BS
 
 tags_attributes = {
     'img': ['src', 'srcset'],
+    'image': ['href'],
     'source': ['src', 'srcset'],
     'a': ['href'],
     'link': ['href'],
@@ -17,6 +17,7 @@ tags_attributes = {
     'video': ['poster', 'srs'],
 	'audio': ['src'],
     'embed': ['src'],
+    'object': ['data'],
     'background': ['url'],
     'background-image': ['url'],
     'svg': ['href'],
@@ -25,14 +26,7 @@ tags_attributes = {
     'html': ['style']
 }
 
-# pattern = rf'\b(http|ftp|https)://[^\s]+(?:.jpg|.jpeg|.png|.gif|.bmp|.index.html|/)\b'
-# pattern = r'(http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])'
 pattern = r'(http|ftp|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])(?!(?:\.xml)(?=\s|$))'
-
-# pattern = r'(?:https?|ftp):\/\/[^\s\'"<>#]+(?:\.[^\s\'"<>#]+)*(?:\/[^\s\'"<>#]*)?'
-# pattern = r'(http|ftp|https):\/\/(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:\/[^\s\'"<>#=]*)?[^=]'
-# pattern = r'((https?://|ftp://|file://)[^\s"\'>]+|/[^"\'>]+)'
-
 
 def spider():
     try:
@@ -50,43 +44,49 @@ def spider():
             raise argparse.ArgumentTypeError(f"{args.level} must be a positive integer")
         assert args.url, f"Invalid URL {args.url}"
         assert args.path, f"Invalid path {args.path}"
+        print_colored_flags("[INFO]    ", "Initial data", Fore.BLUE)
         log(args.url, args.recursive, 0, args.level)
-        print_colored_flags("[INFO]: ", f"Path: {os.path.abspath(args.path)}", Fore.BLUE)
+        print_colored_flags("[INFO]    ", f"Path: {os.path.abspath(args.path)}\n", Fore.BLUE)
         visited_urls = set()
         scrapePage(args.url, args.path, 0, args.level, args.recursive, visited_urls)
 
     except AssertionError as e:
-        print_colored_flags("[ERROR]: ", e, Fore.RED)
+        print_colored_flags("[ERROR]   ", e, Fore.RED)
         return 1
     except ValueError as e:
-        print_colored_flags("[ERROR]: ", e, Fore.RED)
+        print_colored_flags("[ERROR]   ", e, Fore.RED)
         return 2
     except TypeError as e:
-        print_colored_flags("[ERROR]: ", e, Fore.RED)
+        print_colored_flags("[ERROR]   ", e, Fore.RED)
         return 3
     except IsADirectoryError as e:
-        print_colored_flags("[ERROR]: ", e, Fore.RED)
+        print_colored_flags("[ERROR]   ", e, Fore.RED)
         return 4
     except Exception as e:
-        print_colored_flags("[ERROR]: ", e, Fore.RED)
+        print_colored_flags("[ERROR]   ", e, Fore.RED)
         return 5
     except KeyboardInterrupt:
         print()
         return 6
 
 def log(base_url: str, recursive: bool, depth: int, maxDepth: int):
-    print_colored_flags("[INFO]: ", f"Processing: {base_url}", Fore.BLUE)
-    print_colored_flags("[INFO]: ", f"Recursive: {recursive}", Fore.BLUE)
-    print_colored_flags("[INFO]: ", f"Depth level: {depth}/{maxDepth}", Fore.BLUE)
+    print_colored_flags("[INFO]    ", f"Processing: {base_url}", Fore.BLUE)
+    print_colored_flags("[INFO]    ", f"Recursive: {recursive}", Fore.BLUE)
+    print_colored_flags("[INFO]    ", f"Depth level: {depth}/{maxDepth}", Fore.BLUE)
 
 def scrapePage(base_url: str, pathDir: str, depth: int, maxDepth: int, recursion: bool, visited_urls: list, extension=[".jpg", ".jpeg", ".png", ".gif", ".bmp"]):
-    if base_url in visited_urls or depth >= maxDepth:
+    if base_url in visited_urls:
         return
+    log(base_url, recursion, depth, maxDepth)
+    if depth >= maxDepth:
+        print_colored_flags("[WARNING] ", "Maximum recursion depth is reached and no image is found", Fore.YELLOW)
+        return
+
     visited_urls.add(base_url)
 
     if isExtension(base_url, extension):
-        log(base_url, recursion, depth, maxDepth)
         downloadImage(base_url, pathDir)
+        print(base_url, "\n")
         return
     
     response = getResponse(base_url)
@@ -95,6 +95,7 @@ def scrapePage(base_url: str, pathDir: str, depth: int, maxDepth: int, recursion
 
     content = response.content
     if not content or not recursion:
+        print_colored_flags("[WARNING] ", "Recursion, depth level are not given or no image is found", Fore.YELLOW)
         return
 
     if '<?xml' in content.decode(errors='ignore'):
@@ -111,11 +112,15 @@ def scrapePage(base_url: str, pathDir: str, depth: int, maxDepth: int, recursion
                 if attr == 'style':
                     srcs = re.findall(r'url\(["\']?(.*?\.(?:jpg|jpeg|png|gif|bmp))["\']?\)', val)
                     for src in srcs:
-                        if isRelative(src) and not '#' in url and not src.endswith('='):
+                        if isRelative(src) and not '#' in src and not src.endswith('='):
                             urls.append(parse.urljoin(base_url, src))
+                        else:
+                            urls.append(src)
                 else:
-                    if isRelative(val) and isExtension(val, extension):
+                    if isRelative(val):
                         urls.append(parse.urljoin(base_url, val))
+                    else:
+                        urls.append(val)
     try:
         regex_urls = re.findall(pattern, content.decode())
         for url in regex_urls:
@@ -140,7 +145,7 @@ def downloadImage(imageUrl: str, pathDir: str):
 
     os.makedirs(path, exist_ok=True)
     if os.path.exists(filePath):
-        print_colored_flags("[WARNING]: ", f"Image {imageUrl} already saved", Fore.YELLOW)
+        print_colored_flags("[WARNING] ", f"Image {imageUrl} already saved", Fore.YELLOW)
         return
 
     response = getResponse(imageUrl)
@@ -150,24 +155,19 @@ def downloadImage(imageUrl: str, pathDir: str):
     for chunk in response.iter_content(chunk_size=8192):
         file.write(chunk)
     file.close()
-    print_colored_flags("[SUCCESS]: ", f"{imageUrl} saved", Fore.GREEN)
+    print_colored_flags("[SUCCESS] ", f"{imageUrl} saved", Fore.GREEN)
     
 
 def getResponse(url: str):
-    HEADERS = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-    "Connection": "keep-alive",
-    "Upgrade-Insecure-Requests": "1"
-    }
     try:
-        response = requests.get(url, headers=HEADERS, timeout=10)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         return response
     except requests.exceptions.ConnectTimeout as e:
-        print_colored_flags("[ERROR]: ", "{e}", Fore.RED)
+        print_colored_flags("[ERROR]   ", "{e}", Fore.RED)
         return []
     except requests.exceptions.RequestException as e:
-        print_colored_flags("[ERROR]: ", e, Fore.RED)
+        print_colored_flags("[ERROR]   ", e, Fore.RED)
         return []
 
 def isValidUrl(url):
@@ -180,7 +180,7 @@ def isExtension(src: str, extensions: list)-> bool:
 
 def isRelative(url: str) -> bool:
     """Check if a URL is relative"""
-    if not re.match(r'^(?:https?|ftp|..|./|/):', url):
+    if not re.match(r'^(?:https?|ftp):', url):
         return True
     return False
 
