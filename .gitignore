@@ -177,3 +177,17 @@ cython_debug/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+
+
+# VSCode settings
+.vscode/
+
+# Generic Python venv ignore (in case of other folders)
+**/venv/
+**/.venv/
+**/env/
+**/__pycache__/
+
+# macOS system file
+.DS_Store
