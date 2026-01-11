@@ -1,9 +1,15 @@
 import sys
+import os
+import openai
 
 sys.path.append("../..")
 
 from dotenv import find_dotenv, load_dotenv
-from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader, NotionDirectoryLoader
+from langchain_community.document_loaders import (
+    NotionDirectoryLoader,
+    PyPDFLoader,
+    WebBaseLoader,
+)
 from langchain_community.document_loaders.blob_loaders.youtube_audio import (
     YoutubeAudioLoader,
 )
@@ -11,6 +17,7 @@ from langchain_community.document_loaders.generic import GenericLoader
 from langchain_community.document_loaders.parsers import OpenAIWhisperParser
 
 _ = load_dotenv(find_dotenv())
+openai.api_key = os.environ["OPENAI_API_KEY"]
 
 pdf_loader = PyPDFLoader("docs/sample.pdf")
 
@@ -61,4 +68,3 @@ if notion_docs:
     print(notion_doc.metadata)
 else:
     print("No Notion documents found in docs/notes directory")
-
