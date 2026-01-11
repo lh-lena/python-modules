@@ -9,6 +9,7 @@ from langchain_community.document_loaders import (
 )
 from langchain_text_splitters import (
     CharacterTextSplitter,
+    MarkdownHeaderTextSplitter,
     RecursiveCharacterTextSplitter,
     TokenTextSplitter,
 )
@@ -106,3 +107,41 @@ docs = text_splitter.split_documents(pages)
 print(f"Split into {len(docs)} documents")
 print(docs[0])
 print(f"Metadata of first page: {pages[0].metadata}")
+
+print("\nContext aware splitting example")
+markdown_document = """# Title\n\n \
+## Chapter 1\n\n \
+Hi this is Jim\n\n Hi this is Joe\n\n \
+### Section \n\n \
+Hi this is Lance \n\n\
+## Chapter 2\n\n \
+Hi this is Molly"""
+
+headers_to_split_on = [
+    ("#", "Header 1"),
+    ("##", "Header 2"),
+    ("###", "Header 3"),
+]
+
+markdown_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+md_header_splits = markdown_splitter.split_text(markdown_document)
+print("Markdown Header Splitter result: ", len(md_header_splits))
+for i, split in enumerate(md_header_splits):
+    print(f"--- Split {i + 1} ---")
+    print(split)
+    print()
+
+print("\nNotion Directory Loader Example")
+loader = NotionDirectoryLoader("docs/notes")
+docs = loader.load()
+txt = " ".join([d.page_content for d in docs])
+
+headers_to_split_on = [
+    ("#", "Header 1"),
+    ("##", "Header 2"),
+]
+markdown_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
+md_header_splits = markdown_splitter.split_text(txt)
+print("Markdown Header Splitter result: ", len(md_header_splits))
+print("First split content:")
+print(md_header_splits[0])

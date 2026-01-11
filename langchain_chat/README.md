@@ -57,6 +57,11 @@ Demonstrates text splitting strategies:
 - Splits text based on token count
 - Useful for LLM token limits
 
+#### MarkdownHeaderTextSplitter
+- Context-aware splitting for Markdown documents
+- Preserves header hierarchy in metadata
+- Splits based on header levels (#, ##, ###)
+
 Examples include:
 - Basic text splitting with different chunk sizes
 - PDF document splitting
